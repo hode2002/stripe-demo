@@ -63,24 +63,68 @@ export class StripeService {
       return { success: false };
     }
 
+    this.handleEvent(event);
+
+    return { success: true };
+  }
+
+  async refund(paymentIntentId: string) {
+    const result = await this.stripe.refunds.create({
+      payment_intent: paymentIntentId,
+    });
+    return result;
+  }
+
+  private handleEvent(event: Stripe.Event) {
     switch (event.type) {
+      case 'charge.refunded':
+        this.chargeRefunded(event);
+        break;
+
       case 'checkout.session.completed':
-        const session = event.data.object;
-        console.log('Thanh toán thành công:', session);
+        this.checkoutSessionCompleted(event);
+        break;
+
+      case 'checkout.session.expired':
+        this.checkoutSessionExpired(event);
         break;
 
       case 'payment_intent.succeeded':
-        console.log('Thanh toán thành công:', event.data.object);
+        this.paymentIntentSucceeded(event);
         break;
 
       case 'payment_intent.payment_failed':
-        console.log('Thanh toán thất bại:', event.data.object);
+        this.paymentIntentFailed(event);
         break;
 
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
+  }
 
-    return { success: true };
+  private chargeRefunded(event: Stripe.ChargeRefundedEvent) {
+    console.log('Charge_refunded', event.data.object);
+  }
+
+  private checkoutSessionCompleted(
+    event: Stripe.CheckoutSessionCompletedEvent,
+  ) {
+    const session = event.data.object;
+    const paymentIntent = session.payment_intent;
+    console.log('paymentIntent***', paymentIntent);
+    console.log('Checkout.session.completed', session);
+  }
+
+  private checkoutSessionExpired(event: Stripe.CheckoutSessionExpiredEvent) {
+    const session = event.data.object;
+    console.log('Checkout.session.expired', session);
+  }
+
+  private paymentIntentSucceeded(event: Stripe.PaymentIntentSucceededEvent) {
+    console.log('Payment_intent.succeeded', event.data.object);
+  }
+
+  private paymentIntentFailed(event: Stripe.PaymentIntentPaymentFailedEvent) {
+    console.log('Payment_intent.payment_failed', event.data.object);
   }
 }

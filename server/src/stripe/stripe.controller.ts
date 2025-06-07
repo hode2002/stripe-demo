@@ -29,4 +29,9 @@ export class StripeController {
   ) {
     return this.stripeService.handleWebhook(req, signature);
   }
+
+  @Post('refund')
+  async refund(@Body() body: { paymentIntentId: string }) {
+    return this.stripeService.refund(body.paymentIntentId);
+  }
 }
