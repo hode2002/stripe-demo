@@ -1,33 +1,36 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Request } from 'express';
 import Stripe from 'stripe';
+import { ProductService } from '../product/product.service';
 
 @Injectable()
 export class StripeService {
   constructor(
     @Inject('STRIPE')
     private readonly stripe: Stripe,
-  ) {}
+    private readonly productService: ProductService,
+  ) { }
 
   async createCheckoutSession(
     items: { productId: string; quantity: number }[],
     successUrl: string,
     cancelUrl: string,
   ) {
-    const products = [
-      { id: 'prod_1', name: 'Sản phẩm 1', price: 100000 },
-      { id: 'prod_2', name: 'Sản phẩm 2', price: 200000 },
-      { id: 'prod_3', name: 'Sản phẩm 3', price: 150000 },
-    ];
+    const productIds = items.map(item => item.productId);
+
+    const products = await this.productService.findByIds(productIds);
+
+    const productMap = new Map(products.map(p => [p.id, p]));
 
     const lineItems = items.map((item) => {
-      const product = products.find((p) => p.id === item.productId);
-      if (!product)
-        throw new NotFoundException(`Sản phẩm ${item.productId} không tồn tại`);
+      const product = productMap.get(item.productId);
+      if (!product) {
+        throw new NotFoundException(`Product with ID ${item.productId} not found`);
+      }
 
       return {
         price_data: {
-          currency: 'vnd',
+          currency: product.currency || 'vnd',
           product_data: {
             name: product.name,
           },
@@ -36,6 +39,8 @@ export class StripeService {
         quantity: item.quantity,
       };
     });
+
+    console.log(lineItems)
 
     const session = await this.stripe.checkout.sessions.create({
       payment_method_types: ['card'],
