@@ -1,5 +1,4 @@
 import Image from "next/image";
-import StripeCheckout from "@/components/StripeCheckout";
 
 export default function Home() {
   return (
@@ -13,10 +12,6 @@ export default function Home() {
           height={38}
           priority
         />
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <StripeCheckout />
-        </div>
       </main>
     </div>
   );
