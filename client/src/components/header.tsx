@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import AccountDropdown from './account-dropdown';
 import { createClientComponentClient, User } from '@supabase/auth-helpers-nextjs';
-import { ShoppingCart } from 'lucide-react';
+import { ClipboardList, ShoppingCart } from 'lucide-react';
 
 const navigation = [
     { name: 'Home', href: '/' },
@@ -61,6 +61,9 @@ export default function Header(): JSX.Element {
                 <div className="flex flex-1 items-center justify-end space-x-4">
                     {user
                         ? <>
+                            <Link href="/purchase">
+                                <ClipboardList />
+                            </Link>
                             <Link href="/cart">
                                 <ShoppingCart />
                             </Link>
