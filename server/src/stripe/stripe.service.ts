@@ -2,6 +2,8 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Request } from 'express';
 import Stripe from 'stripe';
 import { ProductService } from '../product/product.service';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class StripeService {
@@ -9,9 +11,12 @@ export class StripeService {
     @Inject('STRIPE')
     private readonly stripe: Stripe,
     private readonly productService: ProductService,
+    @Inject('SUPABASE_CLIENT')
+    private readonly supabase: SupabaseClient,
   ) { }
 
   async createCheckoutSession(
+    user: any,
     items: { productId: string; quantity: number }[],
     successUrl: string,
     cancelUrl: string,
@@ -30,7 +35,7 @@ export class StripeService {
 
       return {
         price_data: {
-          currency: product.currency || 'vnd',
+          currency: 'vnd',
           product_data: {
             name: product.name,
           },
@@ -40,15 +45,28 @@ export class StripeService {
       };
     });
 
-    console.log(lineItems)
-
+    const paymentId = uuidv4()
     const session = await this.stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       success_url: successUrl,
       cancel_url: cancelUrl,
+      metadata: {
+        userId: user.id,
+        paymentId
+      },
     });
+
+    await this.supabase.from('payment').insert({
+      id: paymentId,
+      user_id: user.id,
+      checkout_id: session.id,
+      payment_intent: session.payment_intent,
+      amount_total: session.amount_total,
+      status: session.payment_status,
+      method: session.payment_method_types[0],
+    })
 
     return { id: session.id };
   }
@@ -77,6 +95,12 @@ export class StripeService {
     const result = await this.stripe.refunds.create({
       payment_intent: paymentIntentId,
     });
+    if (!result) {
+      throw new NotFoundException(`Payment intent with ID ${paymentIntentId} not found`);
+    }
+    await this.supabase.from('payment').update({
+      status: 'refunded',
+    }).eq('payment_intent', paymentIntentId);
     return result;
   }
 
@@ -111,11 +135,20 @@ export class StripeService {
     console.log('Charge_refunded', event.data.object);
   }
 
-  private checkoutSessionCompleted(
+  private async checkoutSessionCompleted(
     event: Stripe.CheckoutSessionCompletedEvent,
   ) {
     const session = event.data.object;
     const paymentIntent = session.payment_intent;
+
+    await Promise.all([
+      this.supabase.from('payment').update({
+        status: session.payment_status,
+        payment_intent: session.payment_intent,
+      }).eq('id', session.metadata?.paymentId),
+      this.supabase.from('cart').delete().eq('user_id', session.metadata?.userId)
+    ])
+
     console.log('paymentIntent***', paymentIntent);
     console.log('Checkout.session.completed', session);
   }

@@ -4,9 +4,10 @@ import { StripeService } from './stripe.service';
 import Stripe from 'stripe';
 import { StripeController } from './stripe.controller';
 import { ProductModule } from 'src/product/product.module';
+import { SupabaseModule } from 'src/supabse/supabase.module';
 
 @Module({
-  imports: [ConfigModule, ProductModule],
+  imports: [ConfigModule, ProductModule, SupabaseModule],
   controllers: [StripeController],
   providers: [
     {
